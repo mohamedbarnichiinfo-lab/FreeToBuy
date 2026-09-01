@@ -1,0 +1,115 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- HELPER FUNCTIONS ---
+    
+    // Checks if the user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Checks if the user is the owner of the given userId
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Checks if the user is an administrator
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.email == 'djgs.info@gmail.com' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true)
+      );
+    }
+
+    // --- USERS COLLECTION ---
+    match /users/{userId} {
+      // Public read for seller profiles, ratings, and avatar details
+      allow read: if true;
+      
+      // Users can modify their own profile. Admins can manage all users
+      allow create: if isAuthenticated();
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+
+      // --- FAVORITES SUBCOLLECTION ---
+      match /favorites/{favoriteId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+    }
+
+    // --- PUBLICATIONS (PRODUCTS) COLLECTION ---
+    match /publications/{publicationId} {
+      // Anyone can browse products and publications
+      allow read: if true;
+
+      // Only authenticated users can create publications
+      allow create: if isAuthenticated();
+
+      // Only author or admins can update or delete publication
+      allow update, delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // --- CHATS (MESSAGES) COLLECTION ---
+    match /chats/{chatId} {
+      // Authenticated users can read/listen to chat messages
+      allow read: if isAuthenticated();
+
+      // Authenticated users can create messages
+      allow create: if isAuthenticated() && request.resource.data.senderId == request.auth.uid;
+
+      // Participants or admins can update message states (e.g. isUnread = false)
+      allow update: if isAuthenticated() && (
+        resource.data.senderId == request.auth.uid || 
+        resource.data.receiverId == request.auth.uid ||
+        isAdmin()
+      );
+
+      // Participants or admins can delete messages
+      allow delete: if isAuthenticated() && (
+        resource.data.senderId == request.auth.uid || 
+        resource.data.receiverId == request.auth.uid ||
+        isAdmin()
+      );
+    }
+
+    // --- TYPING INDICATORS COLLECTION ---
+    match /typing_indicators/{indicatorId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // --- TRANSACTIONS COLLECTION ---
+    match /transactions/{transactionId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (
+        resource.data.buyerId == request.auth.uid || 
+        resource.data.sellerId == request.auth.uid ||
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    // --- REPORTS (SIGNALEMENTS) COLLECTION ---
+    match /reports/{reportId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
+    }
+
+    // --- VERIFICATIONS COLLECTION ---
+    match /verifications/{verificationId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
+    }
+
+    // --- BROADCASTS COLLECTION ---
+    match /broadcasts/{broadcastId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+  }
+}
+

@@ -1,0 +1,8 @@
+{
+  "name": "FreeToBuy website",
+  "description": "Échangez librement. Économisez ensemble. Une plateforme d\u0027échange vertueuse basée sur les FreeCoins.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
